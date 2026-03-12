@@ -219,31 +219,13 @@
     <audio id="main-audio" loop hidden crossOrigin="anonymous" preload="metadata" playsinline></audio>
 
     <script>
-        // --- Assets from img/ folder: probe candidate URLs (no manifest required) ---
-        const CANDIDATE_IMAGES = [
-            'img/1.jpeg', 'img/1.jpg', 'img/1.png',
-            ...Array.from({ length: 99 }, (_, i) => `img/${i + 2}.png`),
-            'img/g1.png', 'img/g2.png'
-        ];
-        const CANDIDATE_AUDIO = ['img/GON.mp3.mp3', 'img/song.mp3', 'img/music.mp3', 'img/audio.mp3'];
-
-        function probeImage(url) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve(true);
-                img.onerror = () => resolve(false);
-                img.src = url;
-            });
-        }
-
-        function probeAudio(url) {
-            return new Promise((resolve) => {
-                const a = new Audio();
-                a.addEventListener('canplaythrough', () => resolve(true), { once: true });
-                a.addEventListener('error', () => resolve(false), { once: true });
-                a.src = url;
-            });
-        }
+        // --- Assets from img/ folder: load from manifest (img/manifest.json) when folder content changes ---
+        const IMG_MANIFEST_URL = 'img/manifest.json';
+        const IMG_FALLBACK = {
+            anchor: ['img/1.jpeg'],
+            library: [],
+            audio: 'img/GON.mp3.mp3'
+        };
 
         // --- Configuration & State ---
         let state = {
@@ -310,50 +292,46 @@
                 renderLists();
                 return;
             }
-            const imageResults = await Promise.all(
-                CANDIDATE_IMAGES.map(async (url) => ({ url, ok: await probeImage(url) }))
-            );
-            const loadedPaths = imageResults.filter((r) => r.ok).map((r) => r.url);
-            const firstNamedOne = loadedPaths.find((p) => /\/1\.(jpeg|jpg|png)$/i.test(p));
-            const ordered = firstNamedOne
-                ? [firstNamedOne, ...loadedPaths.filter((p) => p !== firstNamedOne)]
-                : loadedPaths;
-            const anchorPaths = ordered.length ? [ordered[0]] : [];
-            const libraryPaths = ordered.slice(1);
-            state.mainAssets = anchorPaths.map((path) => ({
+            let manifest = IMG_FALLBACK;
+            try {
+                const res = await fetch(IMG_MANIFEST_URL);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && (Array.isArray(data.anchor) || Array.isArray(data.library) || data.audio)) {
+                        manifest = {
+                            anchor: Array.isArray(data.anchor) ? data.anchor : IMG_FALLBACK.anchor,
+                            library: Array.isArray(data.library) ? data.library : IMG_FALLBACK.library,
+                            audio: data.audio || IMG_FALLBACK.audio
+                        };
+                    }
+                }
+            } catch (e) { /* use fallback */ }
+            const anchorPaths = manifest.anchor.length ? manifest.anchor : IMG_FALLBACK.anchor;
+            const libraryPaths = manifest.library.length ? manifest.library : [];
+            state.mainAssets = anchorPaths.map(path => ({
                 id: crypto.randomUUID(),
-                url: path,
+                url: path.startsWith('img/') ? path : 'img/' + path,
                 name: path.split('/').pop()
             }));
-            state.assets = libraryPaths.map((path) => ({
+            state.assets = libraryPaths.map(path => ({
                 id: crypto.randomUUID(),
-                url: path,
+                url: path.startsWith('img/') ? path : 'img/' + path,
                 name: path.split('/').pop()
             }));
             if (state.mainAssets.length > 0) {
                 state.currentAssetId = state.mainAssets[0].id;
                 updatePreview(state.mainAssets[0].url);
             }
-            let audioPath = '';
-            for (const url of CANDIDATE_AUDIO) {
-                if (await probeAudio(url)) {
-                    audioPath = url;
-                    break;
-                }
-            }
+            const audioPath = manifest.audio.startsWith('img/') ? manifest.audio : 'img/' + manifest.audio;
             mainAudio.src = audioPath;
             mainAudio.addEventListener('error', function onErr() {
                 mainAudio.removeAttribute('src');
                 audioFilename.innerText = 'Upload Source';
                 document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
             }, { once: true });
-            if (audioPath) {
-                const songName = audioPath.split('/').pop();
-                audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
-                document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
-            } else {
-                audioFilename.innerText = 'Upload Source';
-            }
+            const songName = audioPath.split('/').pop();
+            audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
+            document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
             showFileProtocolHint(false);
             renderLists();
         }

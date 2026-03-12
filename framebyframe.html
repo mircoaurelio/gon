@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>Spectral Locker - AI Sync Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* iOS safe area and full-height */
+        :root {
+            --sat: env(safe-area-inset-top);
+            --sar: env(safe-area-inset-right);
+            --sab: env(safe-area-inset-bottom);
+            --sal: env(safe-area-inset-left);
+        }
+        html {
+            -webkit-text-size-adjust: 100%;
+            min-height: 100%;
+            min-height: -webkit-fill-available;
+        }
+        body {
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            padding-top: var(--sat);
+            padding-right: var(--sar);
+            padding-bottom: var(--sab);
+            padding-left: var(--sal);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+        .custom-scrollbar-h::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar-h::-webkit-scrollbar-thumb { background: #262626; border-radius: 4px; }
+        
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-spin-slow { animation: spin-slow 15s linear infinite; }
+        @-webkit-keyframes spin-slow { from { -webkit-transform: rotate(0deg); } to { -webkit-transform: rotate(360deg); } }
+        
+        input[type='range']::-webkit-slider-thumb { 
+            -webkit-appearance: none; appearance: none; 
+            width: 14px; height: 14px; background: #a855f7; 
+            border-radius: 50%; border: 2px solid #000; cursor: pointer;
+        }
+        /* Bigger thumb for speed slider under video */
+        #sensitivity-input::-webkit-slider-thumb { width: 18px; height: 18px; }
+        #change-speed-input::-webkit-slider-thumb { width: 18px; height: 18px; background: #f59e0b; }
+        #seek-bar::-webkit-slider-thumb { width: 12px; height: 12px; }
+
+        #preview-img-container {
+            transition: filter 0.075s ease-out;
+        }
+
+        /* iOS touch: remove tap highlight, reduce delay */
+        button, [role="button"], input[type="range"], .cursor-pointer {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* Mobile: solid scrollable page – no internal overflow, page scrolls to show all library */
+        @media (max-width: 767px) {
+            .mobile-col { flex-direction: column; }
+            .mobile-order-preview { order: 1; z-index: 20; position: relative; flex: 0 0 auto; }
+            .mobile-order-assets { order: 2; z-index: 0; flex: 0 0 auto; }
+            .mobile-preview-area { min-height: 0; flex: 0 0 40vh; justify-content: center; }
+            .mobile-play-bar { position: relative; z-index: 30; flex-shrink: 0; }
+            .mobile-assets-panel { border-top: 1px solid #262626; border-left: none; padding-bottom: var(--sab); overflow: visible; }
+            .mobile-page-scroll { overflow: visible; flex: 0 0 auto; min-height: 0; }
+            .mobile-view-project { height: auto; min-height: 0; }
+            .mobile-library-wrap { flex: 0 0 auto; min-height: 0; }
+            .mobile-library-grid { overflow: visible; flex: none; }
+        }
+        /* Desktop: library scrolls inside sidebar */
+        @media (min-width: 768px) {
+            .md-library-grid { overflow-y: auto; flex: 1; min-height: 0; }
+        }
+        .safe-area-pb { padding-bottom: max(0.5rem, var(--sab)); }
+    </style>
+</head>
+<body class="min-h-screen bg-neutral-900 text-neutral-100 font-sans flex flex-col overflow-y-auto overflow-x-hidden md:h-screen md:overflow-hidden">
+
+    <!-- Header: no title, just controls -->
+    <header class="bg-neutral-950 border-b border-neutral-800 shadow-md z-20 shrink-0 px-3 py-2 md:px-4 md:py-4 relative">
+        <div class="flex flex-wrap items-center justify-end gap-2 md:gap-6 relative">
+            <i data-lucide="repeat" id="sync-icon" class="w-5 h-5 md:w-6 md:h-6 text-neutral-600 shrink-0"></i>
+            <div id="audio-upload-btn" class="flex items-center gap-1.5 md:gap-2 bg-neutral-900 border border-neutral-800 px-2 py-1 md:px-3 md:py-1.5 rounded-full hover:bg-neutral-800 transition-colors cursor-pointer shrink-0">
+                    <i data-lucide="music" id="audio-icon" class="w-3.5 h-3.5 md:w-4 md:h-4 text-neutral-500"></i>
+                    <span id="audio-filename" class="text-[9px] md:text-[10px] font-bold uppercase text-neutral-300 max-w-[60px] md:max-w-none truncate">Upload Source</span>
+                    <input type="file" id="audio-input" accept="audio/*" class="hidden">
+                </div>
+            <div class="relative flex flex-col items-end">
+                <button id="export-btn" class="bg-white text-black px-3 py-1.5 md:px-5 md:py-2 rounded-full font-bold text-[10px] md:text-xs flex items-center gap-1.5 md:gap-2 active:scale-95 hover:bg-neutral-200 transition-all shadow-lg shadow-white/5 disabled:opacity-50 shrink-0 overflow-hidden">
+                    <span id="export-btn-content" class="flex items-center gap-1.5 md:gap-2">
+                        <i data-lucide="download" class="w-3.5 h-3.5 md:w-4 md:h-4"></i>
+                        <span class="hidden sm:inline">RECORD</span><span class="hidden md:inline"> SYNC</span>
+                    </span>
+                    <span id="export-btn-progress-wrap" class="hidden absolute bottom-0 left-0 right-0 h-1 bg-neutral-800 rounded-b-full overflow-hidden">
+                        <span id="export-btn-progress-bar" class="block h-full bg-purple-500 transition-all duration-150" style="width: 0%"></span>
+                    </span>
+                </button>
+                <!-- Progress panel: fixed on mobile so always visible -->
+                <div id="export-progress" class="hidden fixed md:absolute left-2 right-2 md:left-auto md:right-0 md:min-w-[220px] top-auto bottom-4 md:top-full md:bottom-auto md:mt-2 z-[100] bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl p-3 safe-area-pb">
+                    <p id="export-progress-text" class="text-[10px] font-bold uppercase text-neutral-300 mb-2">Recording video + audio…</p>
+                    <div class="h-2.5 bg-neutral-800 rounded-full overflow-hidden">
+                        <div id="export-progress-bar" class="h-full bg-purple-500 transition-all duration-150" style="width: 0%"></div>
+                    </div>
+                    <p id="export-progress-time" class="text-[9px] font-mono text-neutral-500 mt-1">0:00 / 0:00</p>
+                    <div id="export-download-ready" class="hidden mt-2 pt-2 border-t border-neutral-700">
+                        <p class="text-[9px] text-neutral-400 mb-2">Tap to save video</p>
+                        <a id="export-download-link" href="#" download class="block w-full text-center bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] py-2.5 rounded-full mb-2">Download .webm</a>
+                        <button type="button" id="export-close-btn" class="w-full text-[9px] text-neutral-500 hover:text-neutral-300">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-col mobile-col md:flex-row md:flex-1 md:overflow-hidden mobile-page-scroll">
+        <!-- Preview: center on mobile, left area on desktop -->
+        <main class="flex-1 flex flex-col bg-neutral-900 relative overflow-hidden min-h-0 mobile-order-preview md:min-h-0">
+            <!-- Lock speed + Change speed: on top of player output -->
+            <div class="flex flex-col gap-2 w-full px-4 md:px-8 py-2 md:py-3 bg-neutral-900 border-b border-neutral-800/50 shrink-0">
+                <div class="flex items-center gap-3 w-full">
+                    <span class="text-[10px] font-bold uppercase text-neutral-500 tracking-widest shrink-0">Lock</span>
+                    <input type="range" id="sensitivity-input" min="0" max="1" step="0.01" value="0.1"
+                           class="flex-1 max-w-md h-2.5 accent-purple-500 rounded-lg appearance-none bg-neutral-800 cursor-pointer">
+                    <span id="sensitivity-display" class="text-[10px] font-mono font-bold text-purple-400 w-10 text-right shrink-0">10%</span>
+                </div>
+                <div class="flex items-center gap-3 w-full">
+                    <span class="text-[10px] font-bold uppercase text-neutral-500 tracking-widest shrink-0">Change speed</span>
+                    <input type="range" id="change-speed-input" min="0" max="100" step="1" value="70"
+                           class="flex-1 max-w-md h-2.5 accent-amber-500 rounded-lg appearance-none bg-neutral-800 cursor-pointer">
+                    <span id="change-speed-display" class="text-[10px] font-mono font-bold text-amber-400 w-8 text-right shrink-0 tabular-nums">70</span>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="sync-speed-to-music" checked
+                           class="w-4 h-4 rounded border-neutral-600 bg-neutral-800 text-amber-500 focus:ring-amber-500/50">
+                    <span class="text-[10px] font-bold uppercase text-neutral-400 tracking-widest">Change speed by music intensity</span>
+                </label>
+            </div>
+            <div class="flex-1 min-h-0 p-4 md:p-8 lg:p-12 flex items-center justify-center bg-black overflow-hidden relative mobile-preview-area">
+                <div id="preview-square" class="hidden relative aspect-square w-full max-w-[85vmin] md:max-w-[75vh] bg-neutral-900 overflow-hidden shadow-[0_0_100px_rgba(0,0,0,1)] ring-1 ring-neutral-800">
+                    <div id="preview-img-container" class="w-full h-full overflow-hidden">
+                        <img id="main-preview-img" src="" class="w-full h-full object-cover object-top block">
+                    </div>
+                </div>
+                <div id="idle-display" class="text-center space-y-4 md:space-y-6 opacity-20 group">
+                    <div class="relative">
+                        <i data-lucide="activity" class="w-16 h-16 md:w-24 md:h-24 mx-auto text-purple-500 transition-transform group-hover:scale-110"></i>
+                        <div class="absolute inset-0 bg-purple-500/20 blur-3xl animate-pulse"></div>
+                    </div>
+                    <p class="text-[9px] md:text-[10px] tracking-[0.5em] uppercase font-black text-white">Sync Engine Idle</p>
+                </div>
+            </div>
+            <!-- Spotify-like progress bar + controls -->
+            <div class="mobile-play-bar bg-neutral-950 border-t border-neutral-800 flex flex-col gap-3 md:gap-4 px-4 md:px-10 py-4 z-30 shrink-0 relative">
+                <!-- Seek bar: click or drag to go to any position (minutes:seconds) -->
+                <div class="flex items-center gap-3 w-full" role="group" aria-label="Playback position">
+                    <span id="current-time" class="text-[10px] font-mono text-neutral-500 tabular-nums w-10 shrink-0" aria-live="polite">0:00</span>
+                    <input type="range" id="seek-bar" min="0" max="100" value="0" step="any" title="Drag or click to jump to any time"
+                           class="flex-1 h-2 accent-purple-500 rounded-lg appearance-none bg-neutral-800 cursor-pointer" aria-label="Seek to position in track">
+                    <span id="duration-display" class="text-[10px] font-mono text-neutral-500 tabular-nums w-10 shrink-0">0:00</span>
+                </div>
+                <!-- Play / Pause / Stop -->
+                <div class="flex items-center justify-center gap-8 md:gap-12">
+                    <button id="stop-btn" class="text-neutral-600 hover:text-white transition-colors p-2 -m-2">
+                        <i data-lucide="square" class="w-5 h-5 md:w-6 md:h-6" fill="currentColor"></i>
+                    </button>
+                    <button id="play-pause-btn" type="button" aria-label="Play" class="relative group z-30 min-w-[56px] min-h-[56px] md:min-w-[64px] md:min-h-[64px] flex items-center justify-center rounded-full">
+                        <div class="w-14 h-14 md:w-16 md:h-16 bg-purple-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 hover:bg-purple-500 active:scale-95 transition-all pointer-events-none">
+                            <span id="play-icon-wrap" class="flex items-center justify-center w-8 h-8 md:w-9 md:h-9"></span>
+                        </div>
+                    </button>
+                    <div class="flex flex-col items-center gap-0.5 md:gap-1 opacity-20">
+                        <i data-lucide="volume-2" class="w-4 h-4 md:w-5 md:h-5"></i>
+                        <span class="text-[7px] md:text-[8px] font-bold">LUMINANCE</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Assets panel: bottom on mobile, sidebar on desktop -->
+        <aside class="w-full md:w-80 bg-neutral-950 border-neutral-800 md:border-r flex flex-col mobile-order-assets mobile-assets-panel md:flex-shrink-0 md:overflow-hidden md:max-h-none">
+            <!-- Project -->
+            <div id="view-project" class="flex flex-col h-full min-h-0 mobile-view-project">
+                <!-- Anchors -->
+                <div class="p-4 border-b border-neutral-800 bg-neutral-900/50 space-y-4 shrink-0">
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <h2 class="font-bold text-[10px] text-yellow-500 uppercase flex items-center gap-2 tracking-[0.2em]"><i data-lucide="star" class="w-3 h-3 fill-current"></i> Major Beat Anchors</h2>
+                            <button id="add-anchor-btn" class="p-1 bg-yellow-600 rounded text-black hover:bg-yellow-500"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                            <input type="file" id="anchor-input" multiple accept="image/*" class="hidden">
+                        </div>
+                        <div id="anchors-list" class="flex gap-1 overflow-x-auto pb-2 custom-scrollbar-h h-16 shrink-0">
+                            <div class="flex-1 border border-dashed border-neutral-800 rounded flex items-center justify-center text-[9px] text-neutral-600 uppercase font-bold">No Anchors</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Library: on mobile no overflow, page scrolls; on desktop scrolls inside -->
+                <div class="flex-1 flex flex-col min-h-0 mobile-library-wrap">
+                    <div class="px-4 py-3 bg-neutral-950 border-b border-neutral-800/50 flex justify-between items-center md:sticky md:top-0 z-10 shrink-0">
+                        <h2 class="font-bold text-[10px] text-neutral-400 uppercase flex items-center gap-2 tracking-[0.2em]"><i data-lucide="image" class="w-3 h-3"></i> Library Assets</h2>
+                        <button id="add-library-btn" class="p-1 bg-neutral-800 rounded text-white hover:bg-neutral-700 transition-colors"><i data-lucide="plus" class="w-3 h-3"></i></button>
+                        <input type="file" id="library-input" multiple accept="image/*" class="hidden">
+                    </div>
+                    <div id="library-grid" class="p-4 grid grid-cols-2 gap-3 content-start mobile-library-grid md-library-grid custom-scrollbar">
+                        <!-- Assets injected here -->
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <audio id="main-audio" loop hidden crossOrigin="anonymous" preload="metadata" playsinline></audio>
+
+    <script>
+        // --- Assets from img/ folder: load from manifest (img/manifest.json) when folder content changes ---
+        const IMG_MANIFEST_URL = 'img/manifest.json';
+        const IMG_FALLBACK = {
+            anchor: ['img/1.jpeg'],
+            library: [],
+            audio: 'img/GON.mp3.mp3'
+        };
+
+        // --- Configuration & State ---
+        let state = {
+            assets: [],
+            mainAssets: [],
+            currentAssetId: null,
+            isPlaying: false,
+            sensitivity: 0.1,
+            changeSpeed: 70,
+            syncSpeedToMusic: true,
+            isExporting: false,
+            audioAnalysis: { bass: 0, overall: 0 }
+        };
+
+        // --- Selectors ---
+        const syncIcon = document.getElementById('sync-icon');
+        const sensitivityInput = document.getElementById('sensitivity-input');
+        const sensitivityDisplay = document.getElementById('sensitivity-display');
+        const changeSpeedInput = document.getElementById('change-speed-input');
+        const changeSpeedDisplay = document.getElementById('change-speed-display');
+        const audioInput = document.getElementById('audio-input');
+        const audioFilename = document.getElementById('audio-filename');
+        const mainAudio = document.getElementById('main-audio');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIconWrap = document.getElementById('play-icon-wrap');
+        const stopBtn = document.getElementById('stop-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const deltaBar = document.getElementById('delta-bar');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationDisplay = document.getElementById('duration-display');
+        const mainPreviewImg = document.getElementById('main-preview-img');
+        const previewSquare = document.getElementById('preview-square');
+        const previewImgContainer = document.getElementById('preview-img-container');
+        const idleDisplay = document.getElementById('idle-display');
+
+
+        // Audio Analysis Ref
+        let audioCtx, analyser, source, animationFrame;
+        let lastSwitchTime = 0;
+        let cachedDuration = 0;
+        let isSeeking = false;
+
+        // --- Initialization ---
+        function init() {
+            lucide.createIcons();
+            loadDefaultAssets();
+            attachListeners();
+            updatePlayPauseIcon();
+        }
+
+        function isFileProtocol() {
+            return window.location.protocol === 'file:' || window.location.origin === 'null';
+        }
+
+        async function loadDefaultAssets() {
+            if (isFileProtocol()) {
+                state.mainAssets = [];
+                state.assets = [];
+                mainAudio.removeAttribute('src');
+                audioFilename.innerText = 'Upload (use http server for defaults)';
+                document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
+                showFileProtocolHint(true);
+                renderLists();
+                return;
+            }
+            let manifest = IMG_FALLBACK;
+            try {
+                const res = await fetch(IMG_MANIFEST_URL);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && (Array.isArray(data.anchor) || Array.isArray(data.library) || data.audio)) {
+                        manifest = {
+                            anchor: Array.isArray(data.anchor) ? data.anchor : IMG_FALLBACK.anchor,
+                            library: Array.isArray(data.library) ? data.library : IMG_FALLBACK.library,
+                            audio: data.audio || IMG_FALLBACK.audio
+                        };
+                    }
+                }
+            } catch (e) { /* use fallback */ }
+            const anchorPaths = manifest.anchor.length ? manifest.anchor : IMG_FALLBACK.anchor;
+            const libraryPaths = manifest.library.length ? manifest.library : [];
+            state.mainAssets = anchorPaths.map(path => ({
+                id: crypto.randomUUID(),
+                url: path.startsWith('img/') ? path : 'img/' + path,
+                name: path.split('/').pop()
+            }));
+            state.assets = libraryPaths.map(path => ({
+                id: crypto.randomUUID(),
+                url: path.startsWith('img/') ? path : 'img/' + path,
+                name: path.split('/').pop()
+            }));
+            if (state.mainAssets.length > 0) {
+                state.currentAssetId = state.mainAssets[0].id;
+                updatePreview(state.mainAssets[0].url);
+            }
+            const audioPath = manifest.audio.startsWith('img/') ? manifest.audio : 'img/' + manifest.audio;
+            mainAudio.src = audioPath;
+            mainAudio.addEventListener('error', function onErr() {
+                mainAudio.removeAttribute('src');
+                audioFilename.innerText = 'Upload Source';
+                document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
+            }, { once: true });
+            const songName = audioPath.split('/').pop();
+            audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
+            document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
+            showFileProtocolHint(false);
+            renderLists();
+        }
+
+        function showFileProtocolHint(show) {
+            let el = document.getElementById('file-protocol-hint');
+            if (show && !el) {
+                el = document.createElement('div');
+                el.id = 'file-protocol-hint';
+                el.className = 'w-full text-[9px] text-amber-500/90 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1 text-center mt-2';
+                el.innerHTML = 'Opened from disk. Run a local server (e.g. <code class="font-mono">npx serve .</code>) to use default song &amp; images.';
+                document.querySelector('header').appendChild(el);
+            } else if (el) {
+                el.style.display = show ? '' : 'none';
+            }
+        }
+
+        function formatTime(seconds) {
+            if (!isFinite(seconds) || isNaN(seconds)) return '0:00';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateSeekDisplay() {
+            const t = mainAudio.currentTime;
+            const d = mainAudio.duration;
+            if (isFinite(d) && d > 0) cachedDuration = d;
+            currentTimeEl.textContent = formatTime(t);
+            if (!isSeeking && cachedDuration > 0) {
+                seekBar.value = Math.min(100, (t / cachedDuration) * 100);
+            }
+            if (cachedDuration > 0 && durationDisplay.textContent === '0:00') {
+                durationDisplay.textContent = formatTime(cachedDuration);
+            }
+        }
+
+        function applySeek() {
+            const pct = parseFloat(seekBar.value);
+            if (Number.isNaN(pct) || pct < 0) return;
+            const d = mainAudio.duration;
+            const dur = (isFinite(d) && d > 0) ? d : cachedDuration;
+            if (dur > 0) {
+                const newTime = Math.min(dur, (pct / 100) * dur);
+                mainAudio.currentTime = newTime;
+                currentTimeEl.textContent = formatTime(newTime);
+            }
+        }
+
+        function updatePlayPauseIcon() {
+            if (!playIconWrap) return;
+            const isPlaying = state.isPlaying;
+            playIconWrap.innerHTML = isPlaying
+                ? '<i data-lucide="pause" class="w-7 h-7 md:w-8 md:h-8" fill="currentColor"></i>'
+                : '<i data-lucide="play" class="w-7 h-7 md:w-8 md:h-8 ml-0.5 md:ml-1" fill="currentColor"></i>';
+            lucide.createIcons();
+            playPauseBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+        }
+
+        function attachListeners() {
+            sensitivityInput.addEventListener('input', (e) => {
+                state.sensitivity = parseFloat(e.target.value);
+                sensitivityDisplay.innerText = `${Math.round(state.sensitivity * 100)}%`;
+            });
+            changeSpeedInput.addEventListener('input', (e) => {
+                state.changeSpeed = parseInt(e.target.value, 10);
+                changeSpeedDisplay.innerText = String(state.changeSpeed);
+            });
+            document.getElementById('sync-speed-to-music').addEventListener('change', (e) => {
+                state.syncSpeedToMusic = e.target.checked;
+            });
+
+            mainAudio.addEventListener('loadedmetadata', () => {
+                const d = mainAudio.duration;
+                if (isFinite(d) && d > 0) {
+                    cachedDuration = d;
+                    durationDisplay.textContent = formatTime(d);
+                }
+                seekBar.value = 0;
+            });
+            mainAudio.addEventListener('timeupdate', updateSeekDisplay);
+            mainAudio.addEventListener('durationchange', () => {
+                const d = mainAudio.duration;
+                if (isFinite(d) && d > 0) cachedDuration = d;
+            });
+            mainAudio.addEventListener('ended', () => {
+                state.isPlaying = false;
+                syncIcon.classList.remove('animate-spin-slow', 'text-purple-400');
+                cancelAnimationFrame(animationFrame);
+                updatePlayPauseIcon();
+            });
+            seekBar.addEventListener('mousedown', () => { isSeeking = true; });
+            seekBar.addEventListener('touchstart', () => { isSeeking = true; }, { passive: true });
+            seekBar.addEventListener('mouseup', () => { isSeeking = false; });
+            seekBar.addEventListener('touchend', () => { isSeeking = false; }, { passive: true });
+            seekBar.addEventListener('input', function onSeekInput() {
+                setTimeout(() => applySeek(), 0);
+            });
+            seekBar.addEventListener('change', function onSeekChange() {
+                setTimeout(() => applySeek(), 0);
+            });
+            seekBar.addEventListener('click', function onSeekClick() {
+                setTimeout(() => applySeek(), 0);
+            });
+
+            document.getElementById('audio-upload-btn').onclick = () => audioInput.click();
+            audioInput.onchange = handleAudioUpload;
+
+            document.getElementById('add-anchor-btn').onclick = () => document.getElementById('anchor-input').click();
+            document.getElementById('anchor-input').onchange = (e) => handleFileUpload(e, 'main');
+
+            document.getElementById('add-library-btn').onclick = () => document.getElementById('library-input').click();
+            document.getElementById('library-input').onchange = (e) => handleFileUpload(e, 'assets');
+
+            playPauseBtn.onclick = togglePlay;
+            stopBtn.onclick = stopPlay;
+            exportBtn.onclick = exportVideo;
+        }
+
+        // --- Audio Logic ---
+        function togglePlay() {
+            if (state.assets.length === 0 && state.mainAssets.length === 0) return;
+            if (!mainAudio.src) return;
+
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                initAudioContext();
+                mainAudio.play();
+                syncIcon.classList.add('animate-spin-slow', 'text-purple-400');
+                startSyncLoop();
+            } else {
+                mainAudio.pause();
+                syncIcon.classList.remove('animate-spin-slow', 'text-purple-400');
+                cancelAnimationFrame(animationFrame);
+            }
+            updatePlayPauseIcon();
+        }
+
+        function stopPlay() {
+            state.isPlaying = false;
+            mainAudio.pause();
+            mainAudio.currentTime = 0;
+            syncIcon.classList.remove('animate-spin-slow', 'text-purple-400');
+            cancelAnimationFrame(animationFrame);
+            seekBar.value = 0;
+            currentTimeEl.textContent = '0:00';
+            cachedDuration = 0;
+            if (mainAudio.duration && isFinite(mainAudio.duration)) {
+                durationDisplay.textContent = formatTime(mainAudio.duration);
+            } else {
+                durationDisplay.textContent = '0:00';
+            }
+            updatePlayPauseIcon();
+        }
+
+        async function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 512;
+                source = audioCtx.createMediaElementSource(mainAudio);
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+            }
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+        }
+
+        function startSyncLoop() {
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+            function loop() {
+                if (!state.isPlaying) return;
+                analyser.getByteFrequencyData(dataArray);
+
+                let b = 0;
+                for (let i = 0; i < 15; i++) b += dataArray[i];
+                const bass = (b / 15) / 255;
+                const overall = dataArray.reduce((acc, val) => acc + val, 0) / (dataArray.length * 255);
+
+                state.audioAnalysis = { bass, overall };
+                
+                // Update UI Feedback
+                if (deltaBar) deltaBar.style.width = `${(0.1 + bass) * 100}%`;
+                previewImgContainer.style.filter = `brightness(${0.1 + (bass * 1.0)})`;
+                if (!isSeeking && cachedDuration > 0) {
+                    seekBar.value = (mainAudio.currentTime / cachedDuration) * 100;
+                }
+                currentTimeEl.textContent = formatTime(mainAudio.currentTime);
+
+                // Frame Switching Logic: changeSpeed 0–100. If sync: energy shortens interval.
+                const now = performance.now();
+                const baseMs = Math.max(12, 220 - (state.changeSpeed / 100) * 208);
+                const energy = Math.min(1, bass * 0.6 + overall * 0.4);
+                const interval = state.syncSpeedToMusic ? baseMs * (0.55 + 0.45 * (1 - energy)) : baseMs;
+
+                if (now - lastSwitchTime > interval) {
+                    const nextAsset = resolveFrameFromAudio(bass, overall, now);
+                    if (nextAsset) {
+                        state.currentAssetId = nextAsset.id;
+                        updatePreview(nextAsset.url);
+                        lastSwitchTime = now;
+                    }
+                }
+
+                animationFrame = requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function resolveFrameFromAudio(bass, overall, now) {
+            const anchors = state.mainAssets;
+            const pool = state.assets;
+            const all = [...anchors, ...pool];
+            const current = all.find(a => a.id === state.currentAssetId);
+
+            if (all.length === 0) return null;
+            if (overall < 0.02 && current) return current;
+
+            const t = mainAudio.currentTime || 0;
+            const qB = Math.floor(bass * 15);
+            const qO = Math.floor(overall * 20);
+            const timeSlot = Math.floor(t * 8) % 97;
+            const phase = (now * 0.003) % 1;
+
+            const spectralHash = Math.abs(Math.sin(qB * 7 + qO * 3 + timeSlot * 2) * 10000);
+            const mixHash = Math.abs(Math.sin(phase * 6.28 + spectralHash * 0.01) * 10000);
+            const variety = Math.floor((spectralHash + mixHash + timeSlot * 11) % 1000);
+
+            const isMajorBeat = bass > (1.02 - state.sensitivity);
+            const useAnchor = isMajorBeat && anchors.length > 0 && (variety % 3 !== 0);
+
+            if (useAnchor) {
+                return anchors[variety % anchors.length];
+            }
+            if (pool.length > 0) {
+                const poolIndex = (variety + Math.floor(phase * pool.length)) % pool.length;
+                return pool[poolIndex];
+            }
+            if (anchors.length > 0) {
+                return anchors[variety % anchors.length];
+            }
+            return current || all[variety % all.length];
+        }
+
+        function removeAssetIfMissing(assetId) {
+            const fromAnchor = state.mainAssets.find(x => x.id === assetId);
+            const fromLibrary = state.assets.find(x => x.id === assetId);
+            if (fromAnchor) state.mainAssets = state.mainAssets.filter(x => x.id !== assetId);
+            if (fromLibrary) state.assets = state.assets.filter(x => x.id !== assetId);
+            if (state.currentAssetId === assetId) {
+                const next = state.mainAssets[0] || state.assets[0];
+                state.currentAssetId = next ? next.id : null;
+                if (next) updatePreview(next.url);
+                else { idleDisplay.classList.remove('hidden'); previewSquare.classList.add('hidden'); mainPreviewImg.removeAttribute('src'); }
+            }
+            renderLists();
+        }
+
+        function updatePreview(url) {
+            idleDisplay.classList.add('hidden');
+            previewSquare.classList.remove('hidden');
+            mainPreviewImg.onerror = function() {
+                mainPreviewImg.onerror = null;
+                const cur = [...state.mainAssets, ...state.assets].find(a => a.url === url);
+                if (cur) removeAssetIfMissing(cur.id);
+            };
+            mainPreviewImg.src = url;
+        }
+
+        // --- Asset Management ---
+        function handleFileUpload(e, target) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const url = URL.createObjectURL(file);
+                const item = { id: crypto.randomUUID(), url, name: file.name };
+                if (target === 'main') state.mainAssets.push(item);
+                else state.assets.push(item);
+            });
+            renderLists();
+        }
+
+        function handleAudioUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            mainAudio.src = URL.createObjectURL(file);
+            audioFilename.innerText = file.name.substring(0, 15) + (file.name.length > 15 ? '...' : '');
+            document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
+            currentTimeEl.textContent = '0:00';
+            durationDisplay.textContent = '0:00';
+            seekBar.value = 0;
+            cachedDuration = 0;
+        }
+
+        function renderLists() {
+            const anchorsList = document.getElementById('anchors-list');
+            const libraryGrid = document.getElementById('library-grid');
+
+            // Render Anchors
+            anchorsList.innerHTML = state.mainAssets.length === 0 
+                ? '<div class="flex-1 border border-dashed border-neutral-800 rounded flex items-center justify-center text-[9px] text-neutral-600 uppercase font-bold">No Anchors</div>'
+                : '';
+            
+            state.mainAssets.forEach(a => {
+                const div = document.createElement('div');
+                div.className = 'h-full aspect-square relative group bg-neutral-800 rounded overflow-hidden flex-shrink-0 border border-yellow-500/20';
+                div.innerHTML = `
+                    <img src="${a.url}" class="w-full h-full object-cover object-top" alt="">
+                    <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-1 transition-opacity">
+                        <button class="delete-btn p-1.5 bg-red-600 rounded hover:bg-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                    </div>
+                `;
+                const img = div.querySelector('img');
+                img.onerror = () => removeAssetIfMissing(a.id);
+                div.querySelector('.delete-btn').onclick = () => { state.mainAssets = state.mainAssets.filter(x => x.id !== a.id); renderLists(); };
+                anchorsList.appendChild(div);
+            });
+
+            // Render Library
+            libraryGrid.innerHTML = '';
+            state.assets.forEach(a => {
+                const div = document.createElement('div');
+                div.className = `group relative aspect-square rounded overflow-hidden border transition-all duration-300 ${state.currentAssetId === a.id ? 'border-purple-500 ring-4 ring-purple-500/30' : 'border-neutral-800'}`;
+                div.innerHTML = `
+                    <img src="${a.url}" class="w-full h-full object-cover object-top" alt="">
+                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 p-1.5">
+                        <button class="delete-btn p-2 bg-red-500/80 rounded hover:bg-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                `;
+                const img = div.querySelector('img');
+                img.onerror = () => removeAssetIfMissing(a.id);
+                div.querySelector('.delete-btn').onclick = () => { state.assets = state.assets.filter(x => x.id !== a.id); renderLists(); };
+                libraryGrid.appendChild(div);
+            });
+            lucide.createIcons();
+        }
+
+        // --- Export Engine ---
+        function isIOS() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        let exportBlobUrl = null;
+
+        function showExportProgress(show) {
+            const el = document.getElementById('export-progress');
+            const text = document.getElementById('export-progress-text');
+            const bar = document.getElementById('export-progress-bar');
+            const time = document.getElementById('export-progress-time');
+            const ready = document.getElementById('export-download-ready');
+            const wrap = document.getElementById('export-btn-progress-wrap');
+            const btnContent = document.getElementById('export-btn-content');
+            if (!el) return;
+            if (show) {
+                if (ready) ready.classList.add('hidden');
+                if (text) { text.textContent = 'Recording video + audio…'; text.classList.remove('hidden'); }
+                if (bar) { bar.style.width = '0%'; if (bar.parentElement) bar.parentElement.classList.remove('hidden'); }
+                if (time) { time.textContent = '0:00 / 0:00'; time.classList.remove('hidden'); }
+                el.classList.remove('hidden');
+                if (wrap) wrap.classList.remove('hidden');
+                if (btnContent) btnContent.innerHTML = '<span class="animate-pulse">Recording…</span>';
+            } else {
+                el.classList.add('hidden');
+                if (wrap) wrap.classList.add('hidden');
+            }
+        }
+
+        function updateExportProgress(pct, current, total) {
+            const bar = document.getElementById('export-progress-bar');
+            const time = document.getElementById('export-progress-time');
+            const btnBar = document.getElementById('export-btn-progress-bar');
+            if (bar) bar.style.width = pct + '%';
+            if (btnBar) btnBar.style.width = pct + '%';
+            if (time) time.textContent = formatTime(current) + ' / ' + formatTime(total);
+        }
+
+        function showDownloadReady(url, filename) {
+            if (exportBlobUrl) URL.revokeObjectURL(exportBlobUrl);
+            exportBlobUrl = url;
+            const el = document.getElementById('export-progress');
+            const text = document.getElementById('export-progress-text');
+            const barWrap = document.getElementById('export-progress-bar').parentElement;
+            const time = document.getElementById('export-progress-time');
+            const ready = document.getElementById('export-download-ready');
+            const link = document.getElementById('export-download-link');
+            const wrapBtn = document.getElementById('export-btn-progress-wrap');
+            const btnContentRestore = document.getElementById('export-btn-content');
+            if (link) {
+                link.href = url;
+                link.download = filename;
+            }
+            if (text) { text.textContent = 'Recording complete'; text.classList.remove('hidden'); }
+            if (barWrap) barWrap.classList.add('hidden');
+            if (time) time.classList.add('hidden');
+            if (ready) ready.classList.remove('hidden');
+            if (el) el.classList.remove('hidden');
+            if (wrapBtn) wrapBtn.classList.add('hidden');
+            exportBtn.disabled = false;
+            if (btnContentRestore) {
+                btnContentRestore.innerHTML = '<i data-lucide="download" class="w-3.5 h-3.5 md:w-4 md:h-4"></i> <span class="hidden sm:inline">RECORD</span><span class="hidden md:inline"> SYNC</span>';
+                lucide.createIcons();
+            }
+            state.isExporting = false;
+            var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (!isMobile) link.click();
+            var closeBtn = document.getElementById('export-close-btn');
+            if (closeBtn) closeBtn.onclick = function() {
+                document.getElementById('export-progress').classList.add('hidden');
+                if (exportBlobUrl) { URL.revokeObjectURL(exportBlobUrl); exportBlobUrl = null; }
+            };
+        }
+
+        async function exportVideo() {
+            if (state.assets.length === 0 && state.mainAssets.length === 0) {
+                alert('Add at least one image (anchor or library) to export.');
+                return;
+            }
+            if (!mainAudio.src) {
+                alert('Load or upload an audio file to export video with music.');
+                return;
+            }
+            const duration = mainAudio.duration;
+            if (!isFinite(duration) || duration <= 0) {
+                alert('Audio duration not ready. Wait a moment or reload the audio, then try again.');
+                return;
+            }
+            if (isIOS() && !window.MediaRecorder) {
+                alert('Video export is not supported on this device. Use a desktop browser to record sync.');
+                return;
+            }
+            if (!window.MediaRecorder) {
+                alert('Your browser does not support video recording.');
+                return;
+            }
+
+            state.isExporting = true;
+            stopPlay();
+            exportBtn.disabled = true;
+            var btnContentStart = document.getElementById('export-btn-content');
+            var wrapStart = document.getElementById('export-btn-progress-wrap');
+            if (btnContentStart) btnContentStart.innerHTML = '<span class="animate-pulse">Recording…</span>';
+            if (wrapStart) wrapStart.classList.remove('hidden');
+            if (document.getElementById('export-btn-progress-bar')) document.getElementById('export-btn-progress-bar').style.width = '0%';
+            showExportProgress(true);
+
+            try {
+                await initAudioContext();
+                const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                let lastExportSwitchTime = 0;
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                const stream = canvas.captureStream(30);
+                const audioStream = mainAudio.captureStream ? mainAudio.captureStream() : mainAudio.mozCaptureStream();
+                const combined = new MediaStream([...stream.getTracks(), ...audioStream.getTracks()]);
+                const mimeOpts = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+                const mimeType = mimeOpts.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
+                const recorder = new MediaRecorder(combined, { mimeType });
+                const chunks = [];
+                recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const filename = `spectral_export_${Date.now()}.webm`;
+                    showDownloadReady(url, filename);
+                };
+
+                const imageCache = {};
+                const allAssets = [...state.mainAssets, ...state.assets];
+                for (const a of allAssets) {
+                    if (imageCache[a.id]) continue;
+                    const img = new Image();
+                    img.crossOrigin = "anonymous";
+                    await new Promise(r => { img.onload = r; img.onerror = r; img.src = a.url; });
+                    if (img.complete && img.naturalWidth > 0) imageCache[a.id] = img;
+                }
+                const validCacheIds = Object.keys(imageCache);
+                if (validCacheIds.length === 0) {
+                    showExportProgress(false);
+                    exportBtn.disabled = false;
+                    if (btnContentStart) { btnContentStart.innerHTML = '<i data-lucide="download" class="w-3.5 h-3.5 md:w-4 md:h-4"></i> <span class="hidden sm:inline">RECORD</span><span class="hidden md:inline"> SYNC</span>'; lucide.createIcons(); }
+                    state.isExporting = false;
+                    alert('No images could be loaded. Some files may have been removed from the img folder.');
+                    return;
+                }
+                const sampleImg = imageCache[validCacheIds[0]];
+                const size = sampleImg.width;
+                canvas.width = size;
+                canvas.height = size;
+                const sample = allAssets.find(a => a.id === validCacheIds[0]);
+
+                mainAudio.currentTime = 0;
+                mainAudio.play();
+                recorder.start(200);
+
+                const fps = 30;
+                const frameMs = 1000 / fps;
+
+                function drawExportFrame() {
+                    const t = mainAudio.currentTime;
+                    const pct = Math.min(100, (t / duration) * 100);
+                    updateExportProgress(pct, t, duration);
+
+                    if (t >= duration - 0.1) {
+                        recorder.stop();
+                        mainAudio.pause();
+                        mainAudio.currentTime = 0;
+                        return;
+                    }
+
+                    analyser.getByteFrequencyData(dataArray);
+                    let b = 0;
+                    for (let i = 0; i < 15; i++) b += dataArray[i];
+                    const bass = (b / 15) / 255;
+                    const overall = dataArray.reduce((acc, val) => acc + val, 0) / (dataArray.length * 255);
+                    state.audioAnalysis = { bass, overall };
+
+                    const now = performance.now();
+                    const baseMs = Math.max(12, 220 - (state.changeSpeed / 100) * 208);
+                    const energy = Math.min(1, bass * 0.6 + overall * 0.4);
+                    const interval = state.syncSpeedToMusic ? baseMs * (0.55 + 0.45 * (1 - energy)) : baseMs;
+                    if (now - lastExportSwitchTime > interval) {
+                        const nextAsset = resolveFrameFromAudio(bass, overall, now);
+                        if (nextAsset) {
+                            state.currentAssetId = nextAsset.id;
+                            lastExportSwitchTime = now;
+                        }
+                    }
+
+                    let current = [...state.assets, ...state.mainAssets].find(a => a.id === state.currentAssetId) || sample;
+                    let img = imageCache[current.id];
+                    if (!img || !img.naturalWidth) {
+                        const fallbackId = validCacheIds[0];
+                        current = allAssets.find(a => a.id === fallbackId) || current;
+                        img = imageCache[fallbackId];
+                    }
+                    if (img && img.complete && img.naturalWidth) {
+                        const brightnessVal = 0.1 + (bass * 1.0);
+                        ctx.filter = `brightness(${brightnessVal})`;
+                        ctx.fillStyle = '#000';
+                        ctx.fillRect(0, 0, size, size);
+                        const scale = Math.max(size / img.width, size / img.height);
+                        ctx.drawImage(img, (size - img.width * scale) / 2, 0, img.width * scale, img.height * scale);
+                    }
+
+                    setTimeout(drawExportFrame, frameMs);
+                }
+                drawExportFrame();
+            } catch (err) {
+                console.error(err);
+                showExportProgress(false);
+                exportBtn.disabled = false;
+                var wrapErr = document.getElementById('export-btn-progress-wrap');
+                var btnContentErr = document.getElementById('export-btn-content');
+                if (wrapErr) wrapErr.classList.add('hidden');
+                if (btnContentErr) {
+                    btnContentErr.innerHTML = '<i data-lucide="download" class="w-3.5 h-3.5 md:w-4 md:h-4"></i> <span class="hidden sm:inline">RECORD</span><span class="hidden md:inline"> SYNC</span>';
+                    lucide.createIcons();
+                }
+                state.isExporting = false;
+                alert('Export failed. Try again or use a different browser.');
+            }
+        }
+
+        // --- Start App ---
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -187,8 +187,19 @@
         <aside class="w-full md:w-80 bg-neutral-950 border-neutral-800 md:border-r flex flex-col mobile-order-assets mobile-assets-panel md:flex-shrink-0 md:overflow-hidden md:max-h-none">
             <!-- Project -->
             <div id="view-project" class="flex flex-col h-full min-h-0 mobile-view-project">
-                <!-- Anchors -->
+                <!-- Project & Anchors -->
                 <div class="p-4 border-b border-neutral-800 bg-neutral-900/50 space-y-4 shrink-0">
+                    <!-- Project selector -->
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2 class="font-bold text-[10px] text-purple-400 uppercase flex items-center gap-2 tracking-[0.2em]">
+                                <i data-lucide="folder" class="w-3 h-3"></i>
+                                Projects
+                            </h2>
+                        </div>
+                        <div id="project-selector" class="flex gap-2 overflow-x-auto custom-scrollbar-h py-1"></div>
+                    </div>
+                    <!-- Anchors -->
                     <div class="space-y-2">
                         <div class="flex justify-between items-center">
                             <h2 class="font-bold text-[10px] text-yellow-500 uppercase flex items-center gap-2 tracking-[0.2em]"><i data-lucide="star" class="w-3 h-3 fill-current"></i> Major Beat Anchors</h2>
@@ -224,7 +235,7 @@
         const IMG_FALLBACK = {
             anchor: ['img/1.jpeg'],
             library: [],
-            audio: 'img/GON.mp3.mp3'
+            audio: 'img/GÖN.mp3.mp3'
         };
 
         // --- Configuration & State ---
@@ -237,7 +248,9 @@
             changeSpeed: 70,
             syncSpeedToMusic: true,
             isExporting: false,
-            audioAnalysis: { bass: 0, overall: 0 }
+            audioAnalysis: { bass: 0, overall: 0 },
+            projects: [],
+            currentProjectId: null
         };
 
         // --- Selectors ---
@@ -261,6 +274,7 @@
         const previewSquare = document.getElementById('preview-square');
         const previewImgContainer = document.getElementById('preview-img-container');
         const idleDisplay = document.getElementById('idle-display');
+        const projectSelector = document.getElementById('project-selector');
 
 
         // Audio Analysis Ref
@@ -268,6 +282,9 @@
         let lastSwitchTime = 0;
         let cachedDuration = 0;
         let isSeeking = false;
+
+        // Debug flag for seek/time issues
+        const DEBUG_SEEK = true;
 
         // --- Initialization ---
         function init() {
@@ -279,6 +296,120 @@
 
         function isFileProtocol() {
             return window.location.protocol === 'file:' || window.location.origin === 'null';
+        }
+
+        function normalizeImgPath(path) {
+            if (!path) return '';
+            // Paths like gon/1.jpeg or hung/audio.mp3 are from repo root – use as-is
+            if (/^[a-z0-9_-]+\//i.test(path)) return path;
+            if (path.startsWith('img/')) return path;
+            return 'img/' + path.replace(/^\/+/, '');
+        }
+
+        function loadProjectFromManifest(project) {
+            state.mainAssets = [];
+            state.assets = [];
+            state.currentAssetId = null;
+
+            const anchorPaths = Array.isArray(project.anchor) ? project.anchor : [];
+            const libraryPaths = Array.isArray(project.library) ? project.library : [];
+
+            state.mainAssets = anchorPaths.map(path => {
+                const url = normalizeImgPath(path);
+                return {
+                    id: crypto.randomUUID(),
+                    url,
+                    name: url.split('/').pop()
+                };
+            });
+
+            state.assets = libraryPaths.map(path => {
+                const url = normalizeImgPath(path);
+                return {
+                    id: crypto.randomUUID(),
+                    url,
+                    name: url.split('/').pop()
+                };
+            });
+
+            const firstAsset = state.mainAssets[0] || state.assets[0] || null;
+            if (firstAsset) {
+                state.currentAssetId = firstAsset.id;
+                updatePreview(firstAsset.url);
+            } else {
+                idleDisplay.classList.remove('hidden');
+                previewSquare.classList.add('hidden');
+                mainPreviewImg.removeAttribute('src');
+            }
+
+            const audioPath = normalizeImgPath(project.audio);
+            if (audioPath) {
+                mainAudio.src = audioPath;
+                mainAudio.addEventListener('error', function onErr() {
+                    mainAudio.removeAttribute('src');
+                    audioFilename.innerText = 'Upload Source';
+                    document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
+                }, { once: true });
+                const songName = audioPath.split('/').pop();
+                audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
+                document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
+            } else {
+                mainAudio.removeAttribute('src');
+                audioFilename.innerText = 'Upload Source';
+                document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
+            }
+
+            stopPlay();
+            currentTimeEl.textContent = '0:00';
+            durationDisplay.textContent = '0:00';
+            seekBar.value = 0;
+            cachedDuration = 0;
+
+            renderLists();
+        }
+
+        function renderProjectSelector() {
+            if (!projectSelector) return;
+            projectSelector.innerHTML = '';
+            if (!state.projects || state.projects.length === 0) {
+                projectSelector.classList.add('hidden');
+                return;
+            }
+            projectSelector.classList.remove('hidden');
+
+            state.projects.forEach(project => {
+                const btn = document.createElement('button');
+                const isActive = project.id === state.currentProjectId;
+                btn.type = 'button';
+                btn.className = [
+                    'text-[9px]',
+                    'px-2.5',
+                    'py-1.5',
+                    'rounded-full',
+                    'whitespace-nowrap',
+                    'border',
+                    'transition-colors',
+                    isActive
+                        ? 'bg-purple-600 text-white border-purple-500 shadow-md'
+                        : 'bg-neutral-900 text-neutral-300 border-neutral-700 hover:bg-neutral-800'
+                ].join(' ');
+                btn.textContent = project.name || project.id;
+                btn.onclick = () => selectProject(project.id);
+                projectSelector.appendChild(btn);
+            });
+        }
+
+        function selectProject(projectId) {
+            if (!state.projects || state.projects.length === 0) return;
+            const project = state.projects.find(p => p.id === projectId) || state.projects[0];
+            state.currentProjectId = project.id;
+            try {
+                window.localStorage.setItem('spectral_current_project_id', state.currentProjectId);
+            } catch (e) {
+                // ignore storage errors
+            }
+            loadProjectFromManifest(project);
+            renderProjectSelector();
         }
 
         async function loadDefaultAssets() {
@@ -297,7 +428,15 @@
                 const res = await fetch(IMG_MANIFEST_URL);
                 if (res.ok) {
                     const data = await res.json();
-                    if (data && (Array.isArray(data.anchor) || Array.isArray(data.library) || data.audio)) {
+                    if (data && Array.isArray(data.projects) && data.projects.length > 0) {
+                        state.projects = data.projects.map(p => ({
+                            id: p.id || (p.name || 'project'),
+                            name: p.name || p.id || 'Project',
+                            audio: p.audio || '',
+                            anchor: Array.isArray(p.anchor) ? p.anchor : [],
+                            library: Array.isArray(p.library) ? p.library : []
+                        }));
+                    } else if (data && (Array.isArray(data.anchor) || Array.isArray(data.library) || data.audio)) {
                         manifest = {
                             anchor: Array.isArray(data.anchor) ? data.anchor : IMG_FALLBACK.anchor,
                             library: Array.isArray(data.library) ? data.library : IMG_FALLBACK.library,
@@ -306,32 +445,47 @@
                     }
                 }
             } catch (e) { /* use fallback */ }
-            const anchorPaths = manifest.anchor.length ? manifest.anchor : IMG_FALLBACK.anchor;
-            const libraryPaths = manifest.library.length ? manifest.library : [];
-            state.mainAssets = anchorPaths.map(path => ({
-                id: crypto.randomUUID(),
-                url: path.startsWith('img/') ? path : 'img/' + path,
-                name: path.split('/').pop()
-            }));
-            state.assets = libraryPaths.map(path => ({
-                id: crypto.randomUUID(),
-                url: path.startsWith('img/') ? path : 'img/' + path,
-                name: path.split('/').pop()
-            }));
-            if (state.mainAssets.length > 0) {
-                state.currentAssetId = state.mainAssets[0].id;
-                updatePreview(state.mainAssets[0].url);
+            if (state.projects && state.projects.length > 0) {
+                let storedId = null;
+                try {
+                    storedId = window.localStorage.getItem('spectral_current_project_id');
+                } catch (e) {
+                    storedId = null;
+                }
+                const initialProject =
+                    (storedId && state.projects.find(p => p.id === storedId)) ||
+                    state.projects[0];
+                state.currentProjectId = initialProject.id;
+                loadProjectFromManifest(initialProject);
+                renderProjectSelector();
+            } else {
+                const anchorPaths = manifest.anchor.length ? manifest.anchor : IMG_FALLBACK.anchor;
+                const libraryPaths = manifest.library.length ? manifest.library : [];
+                state.mainAssets = anchorPaths.map(path => ({
+                    id: crypto.randomUUID(),
+                    url: normalizeImgPath(path),
+                    name: normalizeImgPath(path).split('/').pop()
+                }));
+                state.assets = libraryPaths.map(path => ({
+                    id: crypto.randomUUID(),
+                    url: normalizeImgPath(path),
+                    name: normalizeImgPath(path).split('/').pop()
+                }));
+                if (state.mainAssets.length > 0) {
+                    state.currentAssetId = state.mainAssets[0].id;
+                    updatePreview(state.mainAssets[0].url);
+                }
+                const audioPath = normalizeImgPath(manifest.audio);
+                mainAudio.src = audioPath;
+                mainAudio.addEventListener('error', function onErr() {
+                    mainAudio.removeAttribute('src');
+                    audioFilename.innerText = 'Upload Source';
+                    document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
+                }, { once: true });
+                const songName = audioPath.split('/').pop();
+                audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
+                document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
             }
-            const audioPath = manifest.audio.startsWith('img/') ? manifest.audio : 'img/' + manifest.audio;
-            mainAudio.src = audioPath;
-            mainAudio.addEventListener('error', function onErr() {
-                mainAudio.removeAttribute('src');
-                audioFilename.innerText = 'Upload Source';
-                document.getElementById('audio-icon').classList.replace('text-green-500', 'text-neutral-500');
-            }, { once: true });
-            const songName = audioPath.split('/').pop();
-            audioFilename.innerText = songName.substring(0, 15) + (songName.length > 15 ? '...' : '');
-            document.getElementById('audio-icon').classList.replace('text-neutral-500', 'text-green-500');
             showFileProtocolHint(false);
             renderLists();
         }
@@ -360,6 +514,11 @@
             const t = mainAudio.currentTime;
             const d = mainAudio.duration;
             if (isFinite(d) && d > 0) cachedDuration = d;
+            if (DEBUG_SEEK) {
+                console.log('[timeupdate] audio.currentTime=', t.toFixed(3),
+                    'duration=', d, 'cachedDuration=', cachedDuration,
+                    'seekBar.value=', seekBar.value);
+            }
             currentTimeEl.textContent = formatTime(t);
             if (!isSeeking && cachedDuration > 0) {
                 seekBar.value = Math.min(100, (t / cachedDuration) * 100);
@@ -369,15 +528,57 @@
             }
         }
 
-        function applySeek() {
-            const pct = parseFloat(seekBar.value);
+        function applySeek(pctRaw) {
+            const pct = typeof pctRaw === 'number' && !Number.isNaN(pctRaw)
+                ? pctRaw
+                : parseFloat(seekBar.value);
             if (Number.isNaN(pct) || pct < 0) return;
+
             const d = mainAudio.duration;
             const dur = (isFinite(d) && d > 0) ? d : cachedDuration;
-            if (dur > 0) {
-                const newTime = Math.min(dur, (pct / 100) * dur);
+            if (!(dur > 0)) {
+                if (DEBUG_SEEK) {
+                    console.warn('[applySeek] abort: invalid duration', { d, cachedDuration, pct });
+                }
+                return;
+            }
+
+            const newTime = Math.min(dur, (pct / 100) * dur);
+
+            // Preserve play / pause state while seeking
+            const wasPlaying = !mainAudio.paused && !mainAudio.ended;
+            if (DEBUG_SEEK) {
+                console.log('[applySeek] BEFORE set currentTime', {
+                    pct,
+                    dur,
+                    newTime,
+                    wasPlaying,
+                    audioCurrentTime: mainAudio.currentTime,
+                    audioPaused: mainAudio.paused,
+                    audioEnded: mainAudio.ended
+                });
+            }
+            try {
                 mainAudio.currentTime = newTime;
-                currentTimeEl.textContent = formatTime(newTime);
+            } catch (e) {
+                if (DEBUG_SEEK) {
+                    console.error('[applySeek] error setting currentTime', e);
+                }
+                return;
+            }
+            currentTimeEl.textContent = formatTime(newTime);
+            seekBar.value = pct;
+            if (wasPlaying) {
+                // Ensure playback resumes from the new position instead of restarting
+                mainAudio.play().then(() => {
+                    if (DEBUG_SEEK) {
+                        console.log('[applySeek] resumed playback at', mainAudio.currentTime);
+                    }
+                }).catch((err) => {
+                    if (DEBUG_SEEK) {
+                        console.error('[applySeek] play() after seek failed', err);
+                    }
+                });
             }
         }
 
@@ -410,6 +611,9 @@
                     cachedDuration = d;
                     durationDisplay.textContent = formatTime(d);
                 }
+                if (DEBUG_SEEK) {
+                    console.log('[loadedmetadata] duration=', mainAudio.duration, 'cachedDuration=', cachedDuration);
+                }
                 seekBar.value = 0;
             });
             mainAudio.addEventListener('timeupdate', updateSeekDisplay);
@@ -418,23 +622,44 @@
                 if (isFinite(d) && d > 0) cachedDuration = d;
             });
             mainAudio.addEventListener('ended', () => {
+                if (DEBUG_SEEK) {
+                    console.log('[ended] audio ended, currentTime=', mainAudio.currentTime);
+                }
                 state.isPlaying = false;
                 syncIcon.classList.remove('animate-spin-slow', 'text-purple-400');
                 cancelAnimationFrame(animationFrame);
                 updatePlayPauseIcon();
             });
-            seekBar.addEventListener('mousedown', () => { isSeeking = true; });
-            seekBar.addEventListener('touchstart', () => { isSeeking = true; }, { passive: true });
-            seekBar.addEventListener('mouseup', () => { isSeeking = false; });
-            seekBar.addEventListener('touchend', () => { isSeeking = false; }, { passive: true });
-            seekBar.addEventListener('input', function onSeekInput() {
-                setTimeout(() => applySeek(), 0);
+            seekBar.addEventListener('mousedown', () => {
+                isSeeking = true;
+                if (DEBUG_SEEK) console.log('[seekBar] mousedown, starting seek, value=', seekBar.value);
             });
-            seekBar.addEventListener('change', function onSeekChange() {
-                setTimeout(() => applySeek(), 0);
+            seekBar.addEventListener('touchstart', () => {
+                isSeeking = true;
+                if (DEBUG_SEEK) console.log('[seekBar] touchstart, starting seek, value=', seekBar.value);
+            }, { passive: true });
+            seekBar.addEventListener('mouseup', () => {
+                isSeeking = false;
+                if (DEBUG_SEEK) console.log('[seekBar] mouseup, end seek, value=', seekBar.value, 'audio.currentTime=', mainAudio.currentTime);
             });
-            seekBar.addEventListener('click', function onSeekClick() {
-                setTimeout(() => applySeek(), 0);
+            seekBar.addEventListener('touchend', () => {
+                isSeeking = false;
+                if (DEBUG_SEEK) console.log('[seekBar] touchend, end seek, value=', seekBar.value, 'audio.currentTime=', mainAudio.currentTime);
+            }, { passive: true });
+            seekBar.addEventListener('input', function onSeekInput(e) {
+                const pct = parseFloat(e.target.value);
+                if (DEBUG_SEEK) console.log('[seekBar] input event, pct=', pct);
+                applySeek(pct);
+            });
+            seekBar.addEventListener('change', function onSeekChange(e) {
+                const pct = parseFloat(e.target.value);
+                if (DEBUG_SEEK) console.log('[seekBar] change event, pct=', pct);
+                applySeek(pct);
+            });
+            seekBar.addEventListener('click', function onSeekClick(e) {
+                const pct = parseFloat(e.target.value);
+                if (DEBUG_SEEK) console.log('[seekBar] click event, pct=', pct);
+                applySeek(pct);
             });
 
             document.getElementById('audio-upload-btn').onclick = () => audioInput.click();
@@ -457,6 +682,14 @@
             if (!mainAudio.src) return;
 
             state.isPlaying = !state.isPlaying;
+            if (DEBUG_SEEK) {
+                console.log('[togglePlay]', {
+                    stateIsPlaying: state.isPlaying,
+                    audioCurrentTime: mainAudio.currentTime,
+                    audioPaused: mainAudio.paused,
+                    audioEnded: mainAudio.ended
+                });
+            }
             if (state.isPlaying) {
                 initAudioContext();
                 mainAudio.play();
@@ -478,7 +711,6 @@
             cancelAnimationFrame(animationFrame);
             seekBar.value = 0;
             currentTimeEl.textContent = '0:00';
-            cachedDuration = 0;
             if (mainAudio.duration && isFinite(mainAudio.duration)) {
                 durationDisplay.textContent = formatTime(mainAudio.duration);
             } else {

@@ -1,30 +1,62 @@
 {
-  "anchor": [
-    "img/1.jpeg"
-  ],
-  "library": [
-    "img/11.png",
-    "img/12.png",
-    "img/2.png",
-    "img/22.png",
-    "img/23.png",
-    "img/25.png",
-    "img/3.png",
-    "img/4.png",
-    "img/5.png",
-    "img/54.jpg",
-    "img/57.png",
-    "img/58.png",
-    "img/59.png",
-    "img/6.png",
-    "img/60.png",
-    "img/g1.png",
-    "img/g2.png",
-    "img/Gemini_Generated_Image_2128fh2128fh2128.png",
-    "img/Gemini_Generated_Image_55f7hi55f7hi55f7.png",
-    "img/Gemini_Generated_Image_q4deciq4deciq4de.png",
-    "img/Gemini_Generated_Image_te3i6qte3i6qte3i.png",
-    "img/Gemini_Generated_Image_u5wqtyu5wqtyu5wq (1).png"
-  ],
-  "audio": "img/GÖN.mp3.mp3"
+  "projects": [
+    {
+      "id": "gon",
+      "name": "GON",
+      "audio": "img/GÖN.mp3.mp3",
+      "anchor": [
+        "gon/1.jpeg"
+      ],
+      "library": [
+        "gon/121.png",
+        "gon/123.jpg.png",
+        "gon/1233.png",
+        "gon/1236.png",
+        "gon/124.jpg.png",
+        "gon/1248.png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (1).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (2).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (3).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (4).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (5).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (6).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1) (7).png",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1).jpeg",
+        "gon/CANEMORTO_GODUGONG_01.jpg (1).png",
+        "gon/Gemini_Generated_Image_1qg4qv1qg4qv1qg4.png",
+        "gon/Gemini_Generated_Image_2m7yfv2m7yfv2m7y.png",
+        "gon/Gemini_Generated_Image_3jwh3b3jwh3b3jwh.png",
+        "gon/Gemini_Generated_Image_4w12944w12944w12.png",
+        "gon/Gemini_Generated_Image_8lcypg8lcypg8lcy.png",
+        "gon/Gemini_Generated_Image_9jyr429jyr429jyr.png",
+        "gon/Gemini_Generated_Image_abkbszabkbszabkb.png",
+        "gon/Gemini_Generated_Image_cuqttkcuqttkcuqt.png",
+        "gon/Gemini_Generated_Image_dds0apdds0apdds0.png",
+        "gon/Gemini_Generated_Image_e1sng3e1sng3e1sn.png",
+        "gon/Gemini_Generated_Image_edl4adedl4adedl4.png",
+        "gon/Gemini_Generated_Image_k2qzf8k2qzf8k2qz.png",
+        "gon/Gemini_Generated_Image_lzt4nclzt4nclzt4.png",
+        "gon/Gemini_Generated_Image_qjaddqqjaddqqjad.png",
+        "gon/Gemini_Generated_Image_u4qmfsu4qmfsu4qm.png",
+        "gon/Gemini_Generated_Image_u5n08xu5n08xu5n0.png",
+        "gon/Gemini_Generated_Image_xil8a7xil8a7xil8.png",
+        "gon/Gemini_Generated_Image_xp64sfxp64sfxp64.png"
+      ]
+    },
+    {
+      "id": "hung",
+      "name": "Hung",
+      "audio": "img/HUNG.mp3.mp3",
+      "anchor": [
+        "hung/WhatsApp Image 2026-01-14 at 12.23.15.jpeg"
+      ],
+      "library": [
+        "hung/WhatsApp Image 2026-01-14 at 12.23.16 (1).jpeg",
+        "hung/WhatsApp Image 2026-01-14 at 12.23.16.jpeg",
+        "hung/WhatsApp Image 2026-01-14 at 12.23.17 (1).jpeg",
+        "hung/WhatsApp Image 2026-01-14 at 12.23.17.jpeg",
+        "hung/WhatsApp Image 2026-01-14 at 12.23.18.jpeg"
+      ]
+    }
+  ]
 }

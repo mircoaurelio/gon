@@ -104,14 +104,14 @@
                 </button>
                 <!-- Progress panel: fixed on mobile so always visible -->
                 <div id="export-progress" class="hidden fixed md:absolute left-2 right-2 md:left-auto md:right-0 md:min-w-[220px] top-auto bottom-4 md:top-full md:bottom-auto md:mt-2 z-[100] bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl p-3 safe-area-pb">
-                    <p id="export-progress-text" class="text-[10px] font-bold uppercase text-neutral-300 mb-2">Recording video + audio…</p>
+                    <p id="export-progress-text" class="text-[10px] font-bold uppercase text-neutral-300 mb-2">Recording HD video + audio…</p>
                     <div class="h-2.5 bg-neutral-800 rounded-full overflow-hidden">
                         <div id="export-progress-bar" class="h-full bg-purple-500 transition-all duration-150" style="width: 0%"></div>
                     </div>
                     <p id="export-progress-time" class="text-[9px] font-mono text-neutral-500 mt-1">0:00 / 0:00</p>
                     <div id="export-download-ready" class="hidden mt-2 pt-2 border-t border-neutral-700">
                         <p class="text-[9px] text-neutral-400 mb-2">Tap to save video</p>
-                        <a id="export-download-link" href="#" download class="block w-full text-center bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] py-2.5 rounded-full mb-2">Download .webm</a>
+                        <a id="export-download-link" href="#" download class="block w-full text-center bg-purple-600 hover:bg-purple-500 text-white font-bold text-[10px] py-2.5 rounded-full mb-2">Download HD MP4</a>
                         <button type="button" id="export-close-btn" class="w-full text-[9px] text-neutral-500 hover:text-neutral-300">Close</button>
                     </div>
                 </div>
@@ -918,7 +918,7 @@
             if (!el) return;
             if (show) {
                 if (ready) ready.classList.add('hidden');
-                if (text) { text.textContent = 'Recording video + audio…'; text.classList.remove('hidden'); }
+                if (text) { text.textContent = 'Recording HD video + audio…'; text.classList.remove('hidden'); }
                 if (bar) { bar.style.width = '0%'; if (bar.parentElement) bar.parentElement.classList.remove('hidden'); }
                 if (time) { time.textContent = '0:00 / 0:00'; time.classList.remove('hidden'); }
                 el.classList.remove('hidden');
@@ -953,6 +953,8 @@
             if (link) {
                 link.href = url;
                 link.download = filename;
+                const ext = (filename.split('.').pop() || '').toUpperCase();
+                link.textContent = ext === 'MP4' ? 'Download HD MP4' : ('Download HD .' + ext.toLowerCase());
             }
             if (text) { text.textContent = 'Recording complete'; text.classList.remove('hidden'); }
             if (barWrap) barWrap.classList.add('hidden');
@@ -1019,15 +1021,32 @@
                 const stream = canvas.captureStream(30);
                 const audioStream = mainAudio.captureStream ? mainAudio.captureStream() : mainAudio.mozCaptureStream();
                 const combined = new MediaStream([...stream.getTracks(), ...audioStream.getTracks()]);
-                const mimeOpts = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+                // Prefer MP4 (H.264/AAC) when the browser supports it, otherwise fall back to WebM.
+                const mimeOpts = [
+                    'video/mp4;codecs=avc1.640028,mp4a.40.2',
+                    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+                    'video/mp4;codecs=h264,aac',
+                    'video/mp4',
+                    'video/webm;codecs=vp9,opus',
+                    'video/webm;codecs=vp8,opus',
+                    'video/webm'
+                ];
                 const mimeType = mimeOpts.find(m => MediaRecorder.isTypeSupported(m)) || 'video/webm';
-                const recorder = new MediaRecorder(combined, { mimeType });
+                const isMp4 = mimeType.indexOf('mp4') !== -1;
+                const fileExt = isMp4 ? 'mp4' : 'webm';
+                const blobType = isMp4 ? 'video/mp4' : 'video/webm';
+                // 10 Mbps video + 192 kbps audio for proper HD quality.
+                const recorder = new MediaRecorder(combined, {
+                    mimeType,
+                    videoBitsPerSecond: 10_000_000,
+                    audioBitsPerSecond: 192_000
+                });
                 const chunks = [];
                 recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
                 recorder.onstop = () => {
-                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const blob = new Blob(chunks, { type: blobType });
                     const url = URL.createObjectURL(blob);
-                    const filename = `spectral_export_${Date.now()}.webm`;
+                    const filename = `spectral_export_${Date.now()}.${fileExt}`;
                     showDownloadReady(url, filename);
                 };
 
@@ -1050,9 +1069,13 @@
                     return;
                 }
                 const sampleImg = imageCache[validCacheIds[0]];
-                const size = sampleImg.width;
+                // Force HD square output (1080p). If the source is larger, keep its native size.
+                const HD_MIN = 1080;
+                const size = Math.max(HD_MIN, sampleImg.width || HD_MIN);
                 canvas.width = size;
                 canvas.height = size;
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 const sample = allAssets.find(a => a.id === validCacheIds[0]);
 
                 mainAudio.currentTime = 0;

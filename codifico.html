@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Codifico – Impostazioni | GS1 Italy</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f4f6f8;
+            color: #2a3f54;
+            font-size: 14px;
+            min-height: 100vh;
+        }
+
+        /* Top blue bar */
+        .top-bar {
+            background: #1b3a6b;
+            color: #fff;
+            padding: 10px 24px;
+            font-size: 13px;
+        }
+        .top-bar strong { font-weight: 600; }
+
+        /* White header */
+        .main-header {
+            background: #fff;
+            border-bottom: 1px solid #e6eaee;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+        .logo-wrap {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .gs1-logo {
+            width: 52px;
+            height: 52px;
+            background: #f26334;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            line-height: 1;
+        }
+        .gs1-logo .big { font-size: 22px; font-weight: 800; letter-spacing: -1px; }
+        .gs1-logo .small { font-size: 9px; font-weight: 600; margin-top: 2px; }
+        .brand-name {
+            color: #f26334;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .search-box {
+            flex: 1;
+            max-width: 420px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 9px 14px 9px 36px;
+            border: 1px solid #d5dbe0;
+            border-radius: 4px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .search-box .icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8a99a8;
+            font-size: 14px;
+        }
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            color: #6b7a89;
+        }
+        .header-icons .icon-btn {
+            cursor: pointer;
+            font-size: 18px;
+            position: relative;
+        }
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid #e0e4e8;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #2a3f54;
+        }
+        .user-menu .avatar {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #c9d1d9;
+            display: inline-block;
+        }
+
+        /* Nav */
+        .main-nav {
+            background: #fff;
+            border-bottom: 1px solid #e6eaee;
+            padding: 0 24px;
+            display: flex;
+            gap: 28px;
+        }
+        .main-nav a {
+            text-decoration: none;
+            color: #2a3f54;
+            padding: 14px 2px;
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 3px solid transparent;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .main-nav a:hover { color: #f26334; }
+
+        /* Page layout */
+        .page {
+            padding: 28px 32px;
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+        .page-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #2a3f54;
+            margin-bottom: 22px;
+        }
+        .content-grid {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        /* Left sidebar */
+        .side-nav {
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+        }
+        .side-nav a {
+            text-decoration: none;
+            color: #2a3f54;
+            padding: 12px 14px;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+        }
+        .side-nav a.active {
+            border-left-color: #f26334;
+            color: #f26334;
+            font-weight: 600;
+            background: #fff;
+        }
+        .side-nav a:hover:not(.active) { background: #eef1f4; }
+
+        /* Card */
+        .card {
+            background: #fff;
+            border: 1px solid #e6eaee;
+            border-radius: 6px;
+            padding: 28px 32px;
+        }
+        .card h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 18px;
+            color: #2a3f54;
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2a3f54;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e6eaee;
+            margin-bottom: 18px;
+        }
+
+        label.field-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #2a3f54;
+            margin-bottom: 4px;
+        }
+        .field-help {
+            font-size: 12px;
+            color: #8a99a8;
+            margin-bottom: 8px;
+            line-height: 1.45;
+        }
+        .field {
+            margin-bottom: 22px;
+        }
+        select, input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #c9d1d9;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #2a3f54;
+            background: #fff;
+            font-family: inherit;
+        }
+        select:focus, input:focus {
+            outline: none;
+            border-color: #2a75c7;
+            box-shadow: 0 0 0 3px rgba(42,117,199,0.12);
+        }
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%238a99a8' d='M6 8L0 0h12z'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 34px;
+        }
+
+        /* Tipo codifica explainer row */
+        .tipo-row {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 16px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #8a99a8;
+            line-height: 1.5;
+        }
+        .tipo-row .tipo-name {
+            font-weight: 600;
+            color: #8a99a8;
+        }
+
+        /* Save button */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 22px;
+            border-radius: 4px;
+            border: none;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .15s;
+        }
+        .btn-primary {
+            background: #f26334;
+            color: #fff;
+        }
+        .btn-primary:hover { background: #d9542a; }
+        .btn-secondary {
+            background: #fff;
+            color: #2a3f54;
+            border: 1px solid #c9d1d9;
+        }
+        .btn-secondary:hover { background: #f4f6f8; }
+
+        .form-actions {
+            margin-top: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Preview section */
+        .preview-section {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px dashed #e6eaee;
+        }
+        .preview-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .preview-head h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .shape-toggle {
+            display: inline-flex;
+            border: 1px solid #c9d1d9;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .shape-toggle button {
+            background: #fff;
+            border: none;
+            padding: 7px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            color: #2a3f54;
+            font-family: inherit;
+            border-right: 1px solid #e6eaee;
+        }
+        .shape-toggle button:last-child { border-right: none; }
+        .shape-toggle button.active {
+            background: #f26334;
+            color: #fff;
+        }
+
+        .preview-stage {
+            background: #fafbfc;
+            border: 1px solid #e6eaee;
+            border-radius: 6px;
+            padding: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 320px;
+        }
+        .preview-stage svg {
+            max-width: 100%;
+            height: auto;
+        }
+        .preview-caption {
+            text-align: center;
+            font-family: "Courier New", monospace;
+            letter-spacing: 2px;
+            font-size: 14px;
+            margin-top: 10px;
+            color: #2a3f54;
+        }
+
+        .hint {
+            font-size: 12px;
+            color: #8a99a8;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 820px) {
+            .content-grid { grid-template-columns: 1fr; }
+            .main-header { flex-wrap: wrap; }
+            .search-box { order: 3; width: 100%; max-width: none; margin: 10px 0 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top blue bar -->
+    <div class="top-bar">
+        Azienda attiva: <strong>GS1 Italy</strong>
+    </div>
+
+    <!-- White header -->
+    <header class="main-header">
+        <div class="logo-wrap">
+            <div class="gs1-logo">
+                <span class="big">GS1</span>
+                <span class="small">Italy</span>
+            </div>
+            <span class="brand-name">Codifico</span>
+        </div>
+        <div class="search-box">
+            <span class="icon">&#128269;</span>
+            <input type="text" placeholder="Cerca">
+        </div>
+        <div class="header-icons">
+            <span class="icon-btn" title="Notifiche">&#128276;</span>
+            <span class="icon-btn" title="Aiuto">&#9432;</span>
+            <span class="icon-btn" title="Impostazioni">&#9881;</span>
+            <div class="user-menu">
+                <span class="avatar"></span>
+                <span>Utente Ospite</span>
+                <span>&#9662;</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main nav -->
+    <nav class="main-nav">
+        <a href="#">Dashboard</a>
+        <a href="#">Prefissi</a>
+        <a href="#">Prodotti &#9662;</a>
+        <a href="#">Strumenti &#9662;</a>
+        <a href="#">Richieste &#9662;</a>
+    </nav>
+
+    <!-- Page content -->
+    <main class="page">
+        <h1 class="page-title">Impostazioni</h1>
+
+        <div class="content-grid">
+            <!-- Sidebar -->
+            <nav class="side-nav">
+                <a href="#" class="active">Codifica</a>
+                <a href="#">Lingua</a>
+            </nav>
+
+            <!-- Main card -->
+            <section class="card">
+                <h2>Codifica</h2>
+                <div class="section-title">Generali</div>
+
+                <form id="codifica-form">
+                    <div class="field">
+                        <label class="field-label" for="prefisso">Prefisso predefinito</label>
+                        <div class="field-help">Seleziona il prefisso aziendale principale su cui creare i GTIN-13. Puoi cambiare la tua scelta quando vuoi.</div>
+                        <select id="prefisso">
+                            <option>8032089</option>
+                            <option>8004713</option>
+                            <option>8012345</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label">Tipo Codifica</label>
+                        <div class="tipo-row">
+                            <span class="tipo-name">Automatico</span>
+                            <span>Codifico ti presenterà la prima combinazione libera e disponibile per la creazione del GTIN-13.</span>
+                        </div>
+                        <div class="tipo-row" style="margin-bottom:14px;">
+                            <span class="tipo-name">Manuale</span>
+                            <span>Codifico sceglierà comunque la prima combinazione disponibile, ma puoi indicare nel campo <em>Parti dal Rif. Articolo</em> il valore da cui vuoi iniziare a creare i barcode.</span>
+                        </div>
+                        <select id="tipo-codifica">
+                            <option value="manuale" selected>Manuale</option>
+                            <option value="automatico">Automatico</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="field-label" for="parti-da">Parti dal Rif. Articolo</label>
+                        <div class="field-help">Inserisci solo le cifre mancanti senza check digit. Codifico ti proporrà i codici articolo a partire dalle cifre indicate. Potrai comunque modificare la combinazione numerica. Opzione valida solo quando è attivo il <em>Tipo di Codifica</em> manuale.</div>
+                        <input type="text" id="parti-da" value="230000" maxlength="6" pattern="[0-9]*" inputmode="numeric">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Salva modifiche</button>
+                        <button type="button" class="btn btn-secondary" id="preview-btn">Anteprima barcode</button>
+                    </div>
+                </form>
+
+                <!-- Preview section -->
+                <div class="preview-section">
+                    <div class="preview-head">
+                        <h3>Anteprima barcode</h3>
+                        <div class="shape-toggle" role="tablist">
+                            <button type="button" data-shape="rect" class="active">Standard</button>
+                            <button type="button" data-shape="heart">Cuore ♥</button>
+                        </div>
+                    </div>
+
+                    <div class="preview-stage" id="preview-stage">
+                        <!-- SVG preview injected here -->
+                    </div>
+                    <div class="preview-caption" id="preview-caption"></div>
+                    <div class="hint">Il barcode è generato combinando il prefisso aziendale e il Rif. Articolo. La forma a cuore ritaglia il pattern EAN-13 sulla sagoma di un cuore, come il cavallo dell'esempio.</div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+    (function () {
+        const prefissoEl = document.getElementById('prefisso');
+        const partiDaEl = document.getElementById('parti-da');
+        const tipoEl = document.getElementById('tipo-codifica');
+        const stage = document.getElementById('preview-stage');
+        const caption = document.getElementById('preview-caption');
+        const shapeButtons = document.querySelectorAll('.shape-toggle button');
+        const form = document.getElementById('codifica-form');
+        const previewBtn = document.getElementById('preview-btn');
+
+        let currentShape = 'rect';
+
+        // EAN-13 check digit
+        function ean13CheckDigit(first12) {
+            const digits = first12.split('').map(Number);
+            let sum = 0;
+            for (let i = 0; i < 12; i++) {
+                sum += digits[i] * (i % 2 === 0 ? 1 : 3);
+            }
+            return ((10 - (sum % 10)) % 10).toString();
+        }
+
+        function buildCode() {
+            const prefix = (prefissoEl.value || '').replace(/\D/g, '').slice(0, 7);
+            let parti = (partiDaEl.value || '').replace(/\D/g, '');
+            // Fill to make 12 digits total with prefix
+            const need = 12 - prefix.length;
+            if (parti.length > need) parti = parti.slice(0, need);
+            else parti = parti.padStart(need, '0');
+            const first12 = (prefix + parti).slice(0, 12);
+            if (first12.length < 12) return null;
+            return first12 + ean13CheckDigit(first12);
+        }
+
+        // Render barcode to a hidden SVG using JsBarcode, return array of bars [{x,width}] and width
+        function generateBars(code) {
+            const holder = document.createElement('div');
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            holder.appendChild(svg);
+            try {
+                JsBarcode(svg, code, {
+                    format: 'EAN13',
+                    displayValue: false,
+                    margin: 0,
+                    width: 2,
+                    height: 100,
+                    background: '#ffffff',
+                    lineColor: '#000000'
+                });
+            } catch (e) {
+                return null;
+            }
+            // Extract rect bars
+            const rects = svg.querySelectorAll('rect');
+            const bars = [];
+            let totalW = 0;
+            rects.forEach(r => {
+                const x = parseFloat(r.getAttribute('x')) || 0;
+                const w = parseFloat(r.getAttribute('width')) || 0;
+                const fill = (r.getAttribute('style') || r.getAttribute('fill') || '').toLowerCase();
+                // Skip the full-width white background rect
+                if (w > 0 && fill.indexOf('#fff') === -1 && fill.indexOf('white') === -1 && fill.indexOf('rgb(255') === -1) {
+                    bars.push({ x, w });
+                }
+                totalW = Math.max(totalW, x + w);
+            });
+            // fallback if detection skipped nothing: filter by small width
+            return { bars, totalW };
+        }
+
+        // Heart SVG path (centered in a 500 x 450 box roughly)
+        // Classic two-lobed heart
+        const HEART_PATH = 'M250,430 C 40,300 0,180 80,100 C 140,40 230,60 250,150 C 270,60 360,40 420,100 C 500,180 460,300 250,430 Z';
+        const HEART_VB = { w: 500, h: 460 };
+
+        function renderRect(code) {
+            const data = generateBars(code);
+            if (!data) return '<div style="color:#b33">Codice non valido</div>';
+            const { bars, totalW } = data;
+            const h = 160;
+            const pad = 20;
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const w = totalW;
+            let s = `<svg xmlns="${svgNS}" viewBox="-${pad} -${pad} ${w + pad*2} ${h + pad*2 + 24}" width="${Math.min(w + pad*2, 520)}">`;
+            s += `<rect x="-${pad}" y="-${pad}" width="${w + pad*2}" height="${h + pad*2 + 24}" fill="#ffffff"/>`;
+            bars.forEach(b => {
+                s += `<rect x="${b.x}" y="0" width="${b.w}" height="${h}" fill="#4a5d3a"/>`;
+            });
+            s += `<text x="${w/2}" y="${h + 18}" text-anchor="middle" font-family="Courier New, monospace" font-size="14" fill="#2a3f54" letter-spacing="2">${code}</text>`;
+            s += `</svg>`;
+            return s;
+        }
+
+        function renderHeart(code) {
+            const data = generateBars(code);
+            if (!data) return '<div style="color:#b33">Codice non valido</div>';
+            const { bars, totalW } = data;
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const VB_W = HEART_VB.w;
+            const VB_H = HEART_VB.h + 60; // room for text
+            const clipId = 'heartClip-' + Math.random().toString(36).slice(2, 8);
+
+            // Scale bars so that totalW maps to VB_W
+            const scale = VB_W / totalW;
+
+            let s = `<svg xmlns="${svgNS}" viewBox="0 0 ${VB_W} ${VB_H}" width="420" role="img" aria-label="Barcode a forma di cuore">`;
+            s += `<defs><clipPath id="${clipId}"><path d="${HEART_PATH}"/></clipPath></defs>`;
+            s += `<rect width="${VB_W}" height="${VB_H}" fill="#ffffff"/>`;
+
+            // Draw bars clipped to heart
+            s += `<g clip-path="url(#${clipId})">`;
+            s += `<rect x="0" y="0" width="${VB_W}" height="${HEART_VB.h}" fill="#ffffff"/>`;
+            bars.forEach(b => {
+                const x = b.x * scale;
+                const w = b.w * scale;
+                s += `<rect x="${x}" y="0" width="${w}" height="${HEART_VB.h}" fill="#4a5d3a"/>`;
+            });
+            s += `</g>`;
+            // Optional subtle outline of the heart
+            s += `<path d="${HEART_PATH}" fill="none" stroke="#4a5d3a" stroke-width="1" opacity="0.25"/>`;
+            // Caption below heart
+            s += `<text x="${VB_W/2}" y="${HEART_VB.h + 40}" text-anchor="middle" font-family="Courier New, monospace" font-size="22" fill="#2a3f54" letter-spacing="3">${code}</text>`;
+            s += `</svg>`;
+            return s;
+        }
+
+        function refresh() {
+            const code = buildCode();
+            if (!code) {
+                stage.innerHTML = '<div style="color:#b33;font-size:13px;">Inserisci un prefisso e un Rif. Articolo validi.</div>';
+                caption.textContent = '';
+                return;
+            }
+            if (currentShape === 'heart') {
+                stage.innerHTML = renderHeart(code);
+            } else {
+                stage.innerHTML = renderRect(code);
+            }
+            caption.textContent = code;
+        }
+
+        shapeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                shapeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentShape = btn.dataset.shape;
+                refresh();
+            });
+        });
+
+        [prefissoEl, partiDaEl, tipoEl].forEach(el => {
+            el.addEventListener('input', refresh);
+            el.addEventListener('change', refresh);
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            refresh();
+            const btn = form.querySelector('.btn-primary');
+            const old = btn.textContent;
+            btn.textContent = 'Salvato ✓';
+            btn.disabled = true;
+            setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 1400);
+        });
+
+        previewBtn.addEventListener('click', () => {
+            // Switch to heart preview and scroll into view
+            shapeButtons.forEach(b => b.classList.toggle('active', b.dataset.shape === 'heart'));
+            currentShape = 'heart';
+            refresh();
+            document.querySelector('.preview-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        // initial render
+        refresh();
+    })();
+    </script>
+</body>
+</html>
